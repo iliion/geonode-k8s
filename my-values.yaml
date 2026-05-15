@@ -1,0 +1,226 @@
+global:
+  storageClass: longhorn
+  # -- Global tolerations applied to all geonode workloads
+
+tolerations:
+  - key: "cluster"
+    operator: "Equal"
+    value: "rheticuset_cluster"
+    effect: "NoSchedule"
+
+
+geonode:
+  replicaCount: 1
+
+  persistant:
+    storageSize: 2Gi
+
+  general:
+    debug: True
+    debug_static: True
+    externalScheme: https
+    externalDomain: relect.planetek.it  
+
+  resources:
+    limits:
+      cpu: "1500m"
+      memory: "1536Mi"
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+
+  ingress:
+    enabled: False  
+  
+  secret:
+    superUser:
+      password: geonode
+      username: admin
+      email: admin@example.com
+
+  mail:
+    enabled: False
+
+  ldap:
+    enabled: False
+
+  register:
+    open_signup: True
+    email_verification: "False"
+    authentication_method: username_email
+ 
+  # HEALTHCHECKS
+  startupProbe:
+    httpGet:
+      path: /
+      port: http-monitor    # port 8001 (uwsgi stats)
+    failureThreshold: 30    # 30 × 10s = 5 min max startup
+    periodSeconds: 10
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http-monitor
+    initialDelaySeconds: 0 
+    periodSeconds: 30     
+    timeoutSeconds: 10
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http-monitor
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+geoserver:
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "3Gi"      # GeoServer's JVM needs headroom; keep Xmx aligned
+      cpu: "2000m"
+
+pycsw:
+  enabled: True
+  config: |-
+    [server]
+        home=/home/pycsw
+        url=${PYCSW_SERVER_URL}
+        mimetype=application/xml; charset=UTF-8
+        encoding=UTF-8
+        language=en-US
+        maxrecords=10
+        workers=2
+        gzip_compresslevel=5
+        pretty_print=true
+        domainquerytype=range
+        domaincounts=true
+        profiles=apiso,ebrim
+        timeout=30
+    [manager]
+        transactions=true
+    [metadata:main]
+        identification_title=GeoNode pycsw Geospatial Catalogue
+        identification_abstract=GeoNode-k8s pycsw Geospatial Catalogue
+        identification_keywords=catalogue,discovery,metadata,geonode
+        identification_keywords_type=theme
+        identification_fees=None
+        identification_accessconstraints=None
+        provider_name=GeoNode Kubernetes
+        provider_url=${GEONODE_SITE_URL}
+        contact_name=Lastname, Firstname
+        contact_position=Position Title
+        contact_address=Mailing Address
+        contact_city=City
+        contact_stateorprovince=Administrative Area
+        contact_postalcode=Zip or Postal Code
+        contact_country=Country
+        contact_phone=+xx-xxx-xxx-xxxx
+        contact_fax=+xx-xxx-xxx-xxxx
+        contact_email=Email Address
+        contact_url=Contact URL
+        contact_hours=Hours of Service
+        contact_instructions=During hours of service. Off on weekends.
+        contact_role=pointOfContact
+    [repository]
+        database=${PYCSW_REPOSITORY_DATABASE_URI}
+        mappings=/etc/pycsw/pycsw-mappings.py
+        table=base_resourcebase
+    [metadata:inspire]
+        enabled=true
+        languages_supported=eng,gre
+        default_language=eng
+        date=YYYY-MM-DD
+        gemet_keywords=Utility and governmental services
+        conformity_service=notEvaluated
+        contact_name=Organization Name
+        contact_email=Email Address
+        temp_extent=YYYY-MM-DD/YYYY-MM-DD
+
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "500m"
+  
+  # HEALTHCHECKS
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 8000
+    initialDelaySeconds: 15   # give workers time to fork
+    periodSeconds: 10
+    timeoutSeconds: 10        # was 5
+    failureThreshold: 3
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 8000
+    initialDelaySeconds: 30      # allow time for startup
+    timeoutSeconds: 10           # tolerate slow responses
+    periodSeconds: 15
+    failureThreshold: 5          # more tolerance for GC pauses
+
+
+
+# -- Disable the bundled Zalando operator entirely
+postgres-operator:
+  enabled: False
+
+# -- Point to your CNPG cluster
+postgres:
+  type: external
+  username: app # match CNPG's app user
+  geonode_databasename_and_username: geonode
+  geodata_databasename_and_username: geodata
+
+  external:
+    hostname: cluster-pg-rw
+    port: 5432
+    ssl: prefer
+    secret:
+      # existingSecretName: "geonode-postgres-creds"
+      # -- if not using an existing Secret, the operator will create a Secret with this name and the following keys
+      postgres_password: vcebJmiGBeY62jTAmGV7zA7DjvkOpy7FnYuk1gf59ABqGThPSDRO8XIRAE8bxjwc
+      geonode_password: geonode-secret
+      geodata_password: geodata-secret
+
+rabbitmq:
+  requests:
+    memory: "256Mi"
+    cpu: "200m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+  enabled: True
+  persistence:
+    enabled: true
+    size: 2Gi
+  tolerations:
+    - key: "cluster"
+      operator: "Equal"
+      value: "rheticuset_cluster"
+      effect: "NoSchedule"
+
+memcached:
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+  config:
+    memoryLimit: 96        # keep under the container limit (in MB)
+  tolerations:
+    - key: "cluster"
+      operator: "Equal"
+      value: "rheticuset_cluster"
+      effect: "NoSchedule"
