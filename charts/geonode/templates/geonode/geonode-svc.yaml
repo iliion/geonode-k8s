@@ -1,0 +1,18 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ include "geonode_pod_name" . }}"
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    org.geonode.instance: "{{ include "geonode_pod_name" . }}"
+  ports:
+  - targetPort: 8000
+    port: 8000
+    name: geonode
+  - targetPort: 8001
+    port: 8001
+    name: geonode-liveprobe
+  - targetPort: 5555
+    port: 5555
+    name: celery

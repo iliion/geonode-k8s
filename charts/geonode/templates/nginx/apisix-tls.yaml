@@ -1,0 +1,12 @@
+apiVersion: apisix.apache.org/v2
+kind: ApisixTls
+metadata:
+  name: geonode-tls
+  namespace: rheticus-electric-towers
+spec:
+  hosts:
+    - relect.planetek.it
+  ingressClassName: apisix
+  secret:
+    name: geonode-tls-secret
+    namespace: rheticus-electric-towers

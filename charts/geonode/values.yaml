@@ -1,0 +1,882 @@
+global:
+  # -- storageClass used by helm dependencies pvc
+  storageClass:
+  # -- storage access mode used by helm dependency pvc
+  accessMode: ReadWriteMany
+
+# geonode configuration
+geonode:
+  version: 5.0.1
+  container_name: geonode
+  # -- number of geonode replicas (! not working properly yet)
+  replicaCount: 1
+
+  persistant:
+    # -- size of persistant geonode storage
+    storageSize: 10Gi
+
+  image:
+    name: geonode/geonode
+    tag: "5.0.1"
+
+  # -- image pull policy
+  imagePullPolicy: IfNotPresent
+  # -- pull secret to use for geonode image
+  imagePullSecret: ""
+
+  # -- additions to tasks.py init script, must be additional code written in python
+  tasks_pre_script: |
+    print("tasks_pre_script not defined ...")
+
+  accesscontrol:
+    # -- Enable/Disable lockdown mode of GeoNode
+    lockdown: "False"
+
+  secret:
+    # -- name of an existing Secret to use. Set, if you want to separately maintain the Secret.
+    existingSecretName: ""
+    superUser:
+      # -- admin username
+      username: admin
+      # -- admin panel password, will only be changed after running the init-db job. At first time deployment or after rerunning the job manually. (See docs/manage-py-jobs.md)
+      password: geonode
+      # -- admin user password
+      email: support@example.com
+    mail:
+      # -- define mail user to send mails from
+      user: "changeme"
+      # -- set password for mailuser in geonode
+      password: "changeme"
+      # -- define from mail-addr
+      from: "changeme@web.de"
+    oauth2:
+      # -- oauth2 geoserver clientID (OAUTH2_CLIENT_ID)
+      clientId: Jrchz2oPY3akmzndmgUTYrs9gczlgoV20YPSvqaV
+      # -- oauth2 geoserver secret (OAUTH2_CLIENT_SECRET)
+      clientSecret: rCnp5txobUo83EpQEblM8fVj3QT5zb5qRfxNsuPzCqZaiRyIoxM4jdgMiZKFfePBHYXCLd7B8NlkfDBY9HKeIQPcy5Cp08KQNpRHQbjpLItDHv12GvkSeXp6OxaUETv3
+    bing:
+      # Bing API KEY required by MapStore to enable Bing background layers
+      apiKey: ""
+    django:
+      # django SECRET_KEY setting, recommended to set custom value for production
+      secretKey: "myv-y4#7j-d*p-__@j#*3z@!y24fz8%^z2v6atuy4bo9vqr1_a"
+
+  resources:
+    requests:
+      # -- requested memory as in resource.requests.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      memory: "1Gi"
+      # -- requested cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      cpu: 1
+    limits:
+      # -- limits memory as in resource.limits.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      memory: "2Gi"
+      # -- limit cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      cpu: 2
+
+  # -- configure startupProbe for geonode, make sure port is aligned with geonode.port configuration
+  startupProbe:
+    tcpSocket:
+      port: 8000
+    failureThreshold: 18
+    periodSeconds: 5
+
+  # -- configure livenessProbe for geonode, make sure port is aligned with geonode.port configuration
+  livenessProbe:
+    tcpSocket:
+      port: 8000
+    initialDelaySeconds: 90
+    periodSeconds: 5
+    failureThreshold: 3
+
+  ingress:
+    # -- enables external access
+    enabled: True
+    # -- define kubernetes ingress class for geonode ingress
+    ingressClassName:
+    # -- adds ingress annotations for nginx ingress class
+    annotations: {}
+    #   nginx.ingress.kubernetes.io/proxy-body-size: "2g",
+    #   nginx.ingress.kubernetes.io/proxy-connect-timeout: "600",
+    #   nginx.ingress.kubernetes.io/proxy-read-timeout: "600",
+    #   nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    # }
+    # -- tls certificate for geonode ingress https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/ (for the use of cert-manager, configure the acme section properly). is used when geonode.general.externalScheme is set to 'https'
+    tlsSecret: geonode-tls-secret
+
+  acme:
+    # -- enables cert-manager to do ACME challenges (aka certificates via letsencrypt)
+    enabled: False
+    # -- the email to be used to gain certificates
+    email: support@example.com
+    # -- ACME staging environment (use acme-staging to avoid running into rate limits)
+    #stageUrl: https://acme-v02.api.letsencrypt.org/directory
+    stageUrl: https://acme-staging-v02.api.letsencrypt.org/directory
+
+  sentry:
+    # -- enable sentry integration for geonode
+    enabled: False
+    # -- sentry dsn url
+    dsn: ""
+    # -- sentry environment
+    environment: "development"
+    # -- sentry build number
+    build_number: 0
+
+  uwsgi:
+    # --  the max size of a request (request-body excluded)
+    buffer_size: 32768
+    # -- forcefully kill workers after 300 seconds (MOSTLY REASON FOR TIMEOUTS WHILE UPLOAD)
+    harakiri: 300
+    # -- Restart workers after this many requests
+    max_requests: 600
+    # -- Restart workers after this many seconds
+    max_worker_lifetime: 3600
+    # -- Restart workers after this much resident memory
+    reload_on_rss: 2048
+    # -- How long to wait before forcefully killing workers
+    worker_reload_mercy: 60
+
+    # -- Maximum number of workers allowed
+    processes: 4
+    # -- number of threads per process
+    threads: 24
+
+    # -- Minimum number of workers allowed
+    cheaper: 2
+    # -- Workers created at startup
+    cheaper_initial: 2
+    # -- Length of a cycle in seconds
+    cheaper_overload: 1
+    # -- How many workers to spawn at a time
+    cheaper_step: 1
+    # -- How many cycles to wait before killing workers
+    cheaper_busyness_multiplier: 30
+    # -- Below this threshold, kill workers (if stable for multiplier cycles)
+    cheaper_busyness_min: 20
+    # -- Above this threshold, spawn new workers
+    cheaper_busyness_max: 70
+    # -- Spawn emergency workers if more than this many requests are waiting in the queue
+    cheaper_busyness_backlog_alert: 16
+    # -- How many emergency workers to create if there are too many requests in the queue
+    cheaper_busyness_backlog_step: 2
+
+  general:
+    # -- external ingress schema. If set to 'https', make sure to configure TLS either by
+    # configuring tls certificate or using cert-manager. Available options: (http|https)
+    externalScheme: http
+    # -- external ingress hostname
+    externalDomain: geonode
+
+    # -- set force reinit true so that changing passwords etc. in Values.yaml will take effect after restarting the pod
+    # this on the other hand will increase pod initializing time, only change if you know what you are doing
+    force_reinit: true
+    # -- to describe
+    api_limit_per_page: 1000
+    # -- django debug mode
+    debug: False
+    # -- enable django static debug
+    debug_static: False
+    # -- the name of the geonode project used (keep geonode for base image)
+    geonode_project: geonode
+    # -- the settings module to load
+    settings_module: geonode.settings
+
+    # -- FREETEXT_KEYWORDS_READONLY Make Free-Text Keywords writable from users. Or read-only when set to False.
+    freetext_keywords_readonly: false
+    # -- OGC_REQUEST_TIMEOUT
+    ogc_request_timeout: 600
+    # -- OGC_REQUEST_MAX_RETRIES
+    ogc_request_max_retries: 1
+    # -- OGC_REQUEST_BACKOFF_FACTOR
+    ogc_request_backoff_factor: 0.3
+    # -- OGC_REQUEST_POOL_MAXSIZE
+    ogc_request_pool_maxsize: 10
+    # -- OGC_REQUEST_POOL_CONNECTIONS
+    ogc_request_pool_connections: 10
+    # -- SESSION_EXPIRED_CONTROL_ENABLED (https://docs.geonode.org/en/master/basic/settings/index.html#session-expired-control-enabled)
+    # By enabling this variable, a new middleware geonode.security.middleware.SessionControlMiddleware will be added to the MIDDLEWARE_CLASSES.
+    # The class will check every request to GeoNode and it will force a log out whenever one of the following conditions occurs:: Whether the uploaded resources should be public by default.
+    session_expired_control_enabled: "True"
+
+    publishing:
+      # -- RESOURCE_PUBLISHING By default, the GeoNode application allows GeoNode staff members to publish/unpublish resources.
+      # By default, resources are published when created. When this setting is set to True the staff members will be able to unpublish
+      # a resource (and eventually publish it back).
+      resource_publishing_by_staff: false
+      # -- ADMIN_MODERATE_UPLOADS When this variable is set to True, every uploaded resource must be approved before becoming visible to the public users.
+      # Until a resource is in PENDING APPROVAL state, only the superusers, owner and group members can access it, unless specific edit permissions have been set for other users or groups.
+      # A Group Manager can approve the resource, but he cannot publish it whenever the setting RESOURCE_PUBLISHING is set to True. Otherwise,
+      # if RESOURCE_PUBLISHING (helm: resource_publishing_by_staff) is set to False, the resource becomes accessible as soon as it is approved.
+      admin_moderate_uploads: false
+
+    display:
+      # -- DISPLAY_RATINGS If set to False ratings are hidden.
+      rating: true
+      # -- DISPLAY_COMMENTS If set to False comments are hidden.
+      comments: true
+      # -- DISPLAY_SOCIAL If set to False social sharing is hidden.
+      social: true
+      # -- DISPLAY_WMS_LINKS If set to False direct WMS link to GeoServer is hidden.
+      wms_link: true
+      # -- DISPLAY_ORIGINAL_DATASET_LINK If set to False original dataset download is hidden.
+      dataset_link: true
+
+    upload:
+      # -- DEFAULT_MAX_UPLOAD_SIZE (https://docs.geonode.org/en/master/basic/settings/index.html#default-max-upload-size)
+      # Important: This value must be syncronized with nginx.maxClientBodySize
+      # Default: 2097152000 (2000 MB in bytes)
+      # (104857600 = 100 MB) When uploading datasets or uploading documents, the total size of the uploaded files is verified.
+      # The size limits are set during installation using the value of this variable. After installation,
+      # only an user with administrative rights can change it. These limits can be changed in the admin panel
+      # or accessing by api.
+      size: "2097152000"
+      # -- DEFAULT_ANONYMOUS_DOWNLOAD_PERMISSION (https://docs.geonode.org/en/master/basic/settings/index.html#default-anonymous-download-permission)
+      # Whether the uploaded resources should downloadable by default.
+      anonymous_download_permission: "True"
+      # -- DEFAULT_ANONYMOUS_VIEW_PERMISSION (https://docs.geonode.org/en/master/basic/settings/index.html#default-anonymous-view-permission)
+      # Whether the uploaded resources should be public by default.
+      anonymous_view_permission: "True"
+      # -- DEFAULT_MAX_PARALLEL_UPLOADS_PER_USER (https://docs.geonode.org/en/master/basic/settings/index.html#default-max-parallel-uploads-per-user)
+      # Default: 5
+      # When uploading datasets, this value limits the number os parallel uploads.
+      #The parallelism limit is set during installation using the value of this variable.
+      # After installation, only an user with administrative rights can change it.
+      # These limits can be changed in the admin panel or accessing by api.
+      max_parallel_uploads_per_user: 10
+      # -- max upload document size in MB
+      document_size: 60
+
+    # -- add additional settings to the settings py. This code will be appended to the end of the geonode settings.py
+    settings_additions: ""
+
+    # -- extraEnvVars can be used to add geonode environment variable configuration from https://docs.geonode.org/en/master/basic/settings/index.html
+    # which are not available in the helm chart. Where the key is the env-var name comming from the geonode docs.
+    extraEnvVars: {}
+      # SOCIAL_BUTTONS: True
+      # DEFAULT_SEARCH_SIZE: 10
+
+  mail:
+    # -- enables mail configuration for geonode
+    enabled: False
+    # -- set mail backend in geonode settings
+    backend: "django.core.mail.backends.smtp.EmailBackend"
+    # -- set mail host for genode mail
+    host: smtp.gmail.com
+    # -- mail port fo geonode mail
+    port: "587"
+    # -- activate tls for geonode mail (only tls or ssl can be true not both)
+    tls: true
+    # -- enable ssl for geonode mail (only tls or ssl can be true not both)
+    use_ssl: False
+
+  # -- Find docs for register values under:
+  # - https://docs.geonode.org/en/3.3.x/basic/settings/index.html
+  # - https://github.com/pinax/django-user-accounts/blob/master/docs/settings.rst
+  # - https://django-allauth.readthedocs.io/en/latest/configuration.html
+  # @ignored
+  register:
+    # -- allow user registration on geonode
+    # Default: True
+    # If True, creation of new accounts is allowed. When the signup view is called, the template account/signup.html will be displayed, usually showing a form to collect the new user data.
+    # If False, creation of new accounts is disabled. When the signup view is called, the template account/signup_closed.html will be displayed.
+    open_signup: True
+    # -- set email as required for registration
+    email_required: True
+    # -- approve given email with registration
+    approval_required: False
+    # -- send confirm email on get
+    confirm_email_on_get: True
+    # -- enable email verification
+    # Determines the e-mail verification method during signup – choose one of "mandatory", "optional", or "none".
+    # Setting this to “mandatory” requires email_required to be True
+    # When set to “mandatory” the user is blocked from logging in until the email address is verified. Choose “optional” or “none” to allow logins with an unverified e-mail address. In case of “optional”, the e-mail verification mail is still sent, whereas in case of “none” no e-mail verification mails are sent.
+    email_verification: "mandatory"
+    # -- If True, new user accounts will be created as inactive. The user must use the activation link to activate his account.
+    conformation_required: True
+    # -- Specifies the login method to use – whether the user logs in by entering their username, e-mail address, or either one of both. Setting this to “email” requires email_required=True
+    authentication_method: "username_email"
+    # -- group name to add new registered users to, requires auto_assign_registered_members_to_registered: True.
+    registered_members_group_name:
+    # -- if set to True new registered user will be add to defined group in registered_members_group_name
+    auto_assign_registered_members_to_registered: True
+    # -- show email addr in profile view
+    show_profile_email: True
+
+  # configure memcached as django cache. .Values.memcached.... to configure memcached replicas, architecture and so on (see https://docs.djangoproject.com/en/4.0/topics/cache/)
+  memcached:
+    # -- enable memcache, this will spawn one or more seperate memcache container(s)
+    enabled: True
+    # -- set the MEMCACHED_ENABLED env var for GeoNode (django). Dynamic caching (see https://docs.djangoproject.com/en/4.0/topics/cache/)
+    enabled_geonode: False
+    # -- memcached backend to use
+    # if geonode ">=4.3.0" use django.core.cache.backends.memcached.PyLibMCCache
+    # before use django.core.cache.backends.memcached.MemcachedCache
+    backend: django.core.cache.backends.memcached.PyLibMCCache
+    # -- memcached lock expire time
+    lock_expire: "3600"
+    # -- memcached lock timeout
+    lock_timeout: "10"
+
+  init:
+    # -- init container name
+    container_name: geonode-wait-for-db-and-rabbit
+    image:
+      # init container image
+      name: jwilder/dockerize
+      # init container image tag
+      tag: "v0.10.0"
+    # init container image pull policy
+    imagePullPolicy: IfNotPresent
+
+  hooks:
+    # -- enable automatic cleanup of old init/migration jobs before helm upgrade
+    cleanupOnUpgrade: true
+    # -- kubectl image used for the cleanup hook job (official Kubernetes project image)
+    kubectlImage: registry.k8s.io/kubectl
+    # -- kubectl image tag used for the cleanup hook job
+    kubectlTag: "v1.32.0"
+
+  celery:
+    # -- celery container name
+    container_name: celery
+    # -- celery image pull policy
+    imagePullPolicy: IfNotPresent
+    resources:
+      requests:
+        # -- requested memory as in resource.requests.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+        memory: "1Gi"
+        # -- requested cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+        cpu: 1
+      limits:
+        # -- limits memory as in resource.limits.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+        memory: "2Gi"
+        # -- limit cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+        cpu: 2
+
+# CONFIGURATION FOR GEOSERVER DEPLOYMENT
+geoserver:
+  # -- geoserver container name
+  container_name: geoserver
+  image:
+    # -- geoserver image docker image
+    name: geonode/geoserver
+    # -- geoserver docker image tag
+    tag: "2.27.4-latest"
+
+  # -- geoserver image pull policy
+  imagePullPolicy: "IfNotPresent"
+  # -- pull secret to use for geoserver image
+  imagePullSecret: ""
+  # -- set force reinit true so that changing passwords etc. in Values.yaml will take effect after restarting the pod
+  # this on the other hand will increase pod initializing time, only change if you know what you are doing
+  force_reinit: true
+  # -- Enable/disable datetime support for shapefiles (Dorg.geotools.shapefile.datetime JVM option)
+  shapefile_datetime: false
+  # -- geoserver port
+  port: 8080
+  printing:
+    extraHosts: |
+    #      - !dnsMatch
+    #        host: data.geopf.fr
+    #        port: 80
+  secret:
+    # -- name of an existing Secret to use. Set, if you want to separately maintain the Secret.
+    existingSecretName: ""
+    # -- geoserver factory/previous password. This password is used to change the current password for the geoserver admin_user
+    admin_factory_password: geoserver
+    # -- geoserver admin username
+    admin_username: admin
+    # -- geoserver admin password, respect admin_factory_password, if you gonna change the password from not factory password
+    admin_password: geoserver
+
+    # -- additional elements to include in the secret provided to GeoServer, if not using an existing secret
+    extraSecrets: |
+      #  key_1: value_1
+
+    # -- additional elements to include in the config map provided to GeoServer
+    extraConfigMap: |
+      # file_1: conf content
+
+    # -- Define this for extra GeoServer environment variables
+    # Format:
+    # extraPodEnv: |
+    #   - name: KEY_1
+    #     value: "VALUE_1"
+    #   - name: KEY_2
+    #     value: "VALUE_2"
+    extraPodEnv: |
+
+  resources:
+    requests:
+      # -- requested memory as in resource.requests.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      memory: "1Gi"
+      # -- requested cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      cpu: 1
+    limits:
+      # -- limits memory as in resource.limits.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      memory: "4Gi"
+      # -- limit cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      cpu: 2
+
+  # -- configure readinessProbe for geoserver, make sure port is aligned with geoserver.port configuration
+  readinessProbe:
+    tcpSocket:
+      port: 8080
+    periodSeconds: 5
+    failureThreshold: 15
+
+  # -- configure livenessProbe for geoserver, make sure port is aligned with geoserver.port configuration
+  # Using HTTP probe to detect GeoServer 2.27.3 circular dependency startup failure and trigger automatic restart
+  livenessProbe:
+    httpGet:
+      path: /geoserver/ows?service=wms&version=1.3.0&request=GetCapabilities
+      port: 8080
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    failureThreshold: 3
+    timeoutSeconds: 5
+
+geoserver_data:
+  container_name: geoserver-data-dir
+  image:
+    # -- geoserver image docker image
+    name: geonode/geoserver_data
+    # -- geoserver docker image tag
+    tag: "2.27.4-latest"
+  # -- geoserver image pull policy
+  imagePullPolicy: "IfNotPresent"
+
+# CONFIGURATION FOR NGINX DEPLOYMENT
+nginx:
+  # -- nginx container name
+  container_name: nginx
+  # -- nginx container replicas
+  replicaCount: 1
+  image:
+    # -- nginx docker image
+    name: nginx
+    # -- nginx docker image tag
+    tag: "1.28"
+  # -- nginx image pull policy
+  imagePullPolicy: "IfNotPresent"
+  # -- pull secret to use for nginx image
+  imagePullSecret: ""
+
+  # -- max file upload size for geonode upload. Only set this value if it should be different from geonode.general.upload.size.
+  # to use e.g. if geonode.general.upload.document_size > geonode.general.upload.size
+  geonodeMaxClientBodySize: 2000M
+  # -- maximum upload size for geoserver in nginx configuration. Changes here may also require changes in geoserver configuration of the individual services (WFS, ...)
+  geoServerMaxClientBodySize: 10G
+  # -- maximum upload size for pycsw server in nginx configuration. Only used if `.Values.pycsw.enabled: true`.
+  pycswMaxClientBodySize: 100M
+
+  resources:
+    requests:
+      # -- requested memory as in resource.requests.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      memory: "1Gi"
+      # -- requested cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      cpu: "500m"
+    limits:
+      # -- limits memory as in resource.limits.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      memory: "1Gi"
+      # -- limit cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      cpu: "800m"
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 50
+    timeoutSeconds: 5
+
+  access_control_allow:
+    # -- control value of Access-Control-Allow-Credentials in nginx configuration
+    credentials: false
+  external_cors:
+    # -- Add Access-Control-Allow-Origin directive to allow integration from an external domain
+    enabled: false
+    # -- Target domain for CORS
+    domain: ""
+
+# pycsw integration is based on https://github.com/geopython/pycsw/blob/master/docker/kubernetes
+pycsw:
+  # -- enable single pycsw pod
+  enabled: True
+  # -- pycsw container replicas
+  replicaCount: 1
+  # -- pycsw container name
+  container_name: pycsw
+  image:
+    # -- pycsw docker image
+    name: geopython/pycsw
+    # -- pycsw docker image tag
+    tag: "3.0.0-beta2"
+  # -- pycsw image pull policy
+  imagePullPolicy: "IfNotPresent"
+  # -- pull secret to use for pycsw image
+  imagePullSecret: ""
+  # -- pycsw endpoint port
+  port: 8000
+  # -- pycsw url below geonode.general.externalDomain
+  endpoint: /catalogue/csw
+  resources:
+    requests:
+      # -- requested memory as in resource.requests.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      memory: "1Gi"
+      # -- requested cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      cpu: "500m"
+    limits:
+      # -- limits memory as in resource.limits.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      memory: "1Gi"
+      # -- limit cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      cpu: "500m"
+
+  # -- configure readinessProbe for pycsw, make sure port is aligned with pycsw.port configuration
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 8000
+    timeoutSeconds: 5
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 8000
+    initialDelaySeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  init:
+    container_name: pycsw-wait-for-geonode
+    image:
+      # -- pycsw docker image
+      name: alpine/curl
+      # -- pycsw docker image tag
+      tag: "8.5.0"
+    # -- pycsw image pull policy
+    imagePullPolicy: "IfNotPresent"
+  # -- pycsw config file parameters, see docs: https://docs.pycsw.org/_/downloads/en/latest/pdf/
+  # @default -- copied from 4.1.x: https://github.com/GeoNode/geonode/blob/master/geonode/catalogue/backends/pycsw_local_mappings.py
+  mappings: |-
+    MD_CORE_MODEL = {
+      "typename": "pycsw:CoreMetadata",
+      "outputschema": "http://www.isotc211.org/2005/gmd",
+      "mappings": {
+        "pycsw:Identifier": "uuid",
+        "pycsw:Typename": "csw_typename",
+        "pycsw:Schema": "csw_schema",
+        "pycsw:MdSource": "csw_mdsource",
+        "pycsw:InsertDate": "csw_insert_date",
+        "pycsw:XML": "metadata_xml",
+        "pycsw:Metadata": "metadata",
+        "pycsw:MetadataType": "metadata_type",
+        "pycsw:AnyText": "csw_anytext",
+        "pycsw:Language": "language",
+        "pycsw:Title": "title",
+        "pycsw:Edition": "edition",
+        "pycsw:Platform": "platform",
+        "pycsw:Instrument": "instrument",
+        "pycsw:SensorType": "sensortype",
+        "pycsw:CloudCover": "cloudcover",
+        "pycsw:Bands": "bands",
+        "pycsw:Themes": "csw_themes",
+        "pycsw:Contacts": "pycsw_contacts",
+        "pycsw:Abstract": "raw_abstract",
+        "pycsw:Keywords": "keyword_csv",
+        "pycsw:KeywordType": "keywordstype",
+        "pycsw:Format": "spatial_representation_type_string",
+        "pycsw:Source": "source",
+        "pycsw:Date": "date",
+        "pycsw:Modified": "date",
+        "pycsw:Type": "csw_type",
+        "pycsw:BoundingBox": "csw_wkt_geometry",
+        "pycsw:CRS": "csw_crs",
+        "pycsw:AlternateTitle": "alternate",
+        "pycsw:RevisionDate": "date",
+        "pycsw:CreationDate": "date",
+        "pycsw:PublicationDate": "date",
+        "pycsw:Organization": "organizationname",
+        "pycsw:OrganizationName": "organizationname",
+        "pycsw:SecurityConstraints": "securityconstraints",
+        "pycsw:ParentIdentifier": "parentidentifier",
+        "pycsw:TopicCategory": "topiccategory",
+        "pycsw:ResourceLanguage": "language",
+        "pycsw:GeographicDescriptionCode": "geodescode",
+        "pycsw:Denominator": "denominator",
+        "pycsw:DistanceValue": "distancevalue",
+        "pycsw:DistanceUOM": "distanceuom",
+        "pycsw:TempExtent_begin": "temporal_extent_start",
+        "pycsw:TempExtent_end": "temporal_extent_end",
+        "pycsw:ServiceType": "servicetype",
+        "pycsw:ServiceTypeVersion": "servicetypeversion",
+        "pycsw:Operation": "operation",
+        "pycsw:CouplingType": "couplingtype",
+        "pycsw:OperatesOn": "operateson",
+        "pycsw:OperatesOnIdentifier": "operatesonidentifier",
+        "pycsw:OperatesOnName": "operatesoname",
+        "pycsw:Degree": "degree",
+        "pycsw:AccessConstraints": "restriction_code",
+        "pycsw:OtherConstraints": "raw_constraints_other",
+        "pycsw:Classification": "classification",
+        "pycsw:ConditionApplyingToAccessAndUse": "conditionapplyingtoaccessanduse",
+        "pycsw:Lineage": "lineage",
+        "pycsw:ResponsiblePartyRole": "responsiblepartyrole",
+        "pycsw:SpecificationTitle": "specificationtitle",
+        "pycsw:SpecificationDate": "specificationdate",
+        "pycsw:SpecificationDateType": "specificationdatetype",
+        "pycsw:Creator": "creator",
+        "pycsw:Publisher": "publisher",
+        "pycsw:Contributor": "contributor",
+        "pycsw:Relation": "relation",
+        "pycsw:Links": "download_links",
+      },
+    }
+  # pycsw.config -- pycsw config file parameters, see docs: https://docs.pycsw.org/_/downloads/en/latest/pdf/
+  # @default -- based of pycsw example.cfg: https://github.com/geopython/pycsw/blob/master/docker/pycsw.cfg
+  config: |-
+    [server]
+        home=/home/pycsw
+        url=${PYCSW_SERVER_URL}
+        mimetype=application/xml; charset=UTF-8
+        encoding=UTF-8
+        language=en-US
+        maxrecords=10
+        # level=DEBUG
+        # ogc_schemas_base=
+        # federatedcatalogues=
+        gzip_compresslevel=5
+        pretty_print=true
+        domainquerytype=range
+        domaincounts=true
+        # spatial_ranking=
+        profiles=apiso,ebrim
+        # workers=
+        timeout=30
+    [manager]
+        transactions=true
+        # allowed_ips=
+        # csw_harvest_pagesize=
+    [metadata:main]
+        identification_title=GeoNode pycsw Geospatial Catalogue
+        identification_abstract=GeoNode-k8s pycsw Geospatial Catalogue
+        identification_keywords=catalogue,discovery,metadata, geonode
+        identification_keywords_type=theme
+        identification_fees=None
+        identification_accessconstraints=None
+        provider_name=GeoNode Kubernetes
+        provider_url=${GEONODE_SITE_URL}
+        contact_name=Lastname, Firstname
+        contact_position=Position Title
+        contact_address=Mailing Address
+        contact_city=City
+        contact_stateorprovince=Administrative Area
+        contact_postalcode=Zip or Postal Code
+        contact_country=Country
+        contact_phone=+xx-xxx-xxx-xxxx
+        contact_fax=+xx-xxx-xxx-xxxx
+        contact_email=Email Address
+        contact_url=Contact URL
+        contact_hours=Hours of Service
+        contact_instructions=During hours of service.  Off on weekends.
+        contact_role=pointOfContact
+    [repository]
+        database=${PYCSW_REPOSITORY_DATABASE_URI}
+        mappings=/etc/pycsw/pycsw-mappings.py
+        table=base_resourcebase
+    [metadata:inspire]
+        enabled="true"
+        languages_supported=eng,gre
+        default_language=eng
+        date=YYYY-MM-DD
+        gemet_keywords=Utility and governmental services
+        conformity_service=notEvaluated
+        contact_name=Organization Name
+        contact_email=Email Address
+        temp_extent=YYYY-MM-DD/YYYY-MM-DD
+
+# MEMCACHED CONFIGURATION
+# https://artifacthub.io/packages/helm/cloudpirates-memcached/memcached
+memcached:
+  enabled: true
+  # Basic installation
+  replicaCount: 1
+  config:
+    memoryLimit: 128
+    maxConnections: 2048
+
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# RABBITMQ CONFIGURATION
+# https://artifacthub.io/packages/helm/cloudpirates-rabbitmq/rabbitmq
+# Activate if you are running geonode below 5.0.0
+rabbitmq:
+  enabled: false
+
+  # -- rabbitmq raplica count
+  persistence:
+    enabled: true
+    size: 2Gi
+
+  requests:
+    # -- requested memory as in resource.requests.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+    memory: "1Gi"
+    # -- requested cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+    cpu: "500m"
+  limits:
+    # -- limits memory as in resource.limits.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+    memory: "1Gi"
+    # -- limit cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+    cpu: "750m"
+
+  auth:
+    enabled: true
+    username: rabbituser
+    # -- RabbitMQ password. **WARNING: Change this for production deployments!** The default value is insecure.
+    password: rabbitpassword
+
+  config:
+    memoryHighWatermark:
+      enabled: true
+      type: "relative"
+      value: 0.5
+
+  ingress:
+    enabled: False
+
+# REDIS CONFIGURATION
+# https://artifacthub.io/packages/helm/cloudpirates-redis/redis/0.19.0
+
+redis:
+  # -- enable redis deployment
+  enabled: True
+  # -- Redis architecture. standalone: Single instance, cluster: Multi-master cluster, replication: Master-replica (use sentinel.enabled to control automatic failover)
+  architecture: standalone
+  # -- redis container replicas
+  replicaCount: 1
+  auth:
+    # -- Enable Redis authentication
+    enabled: True
+    # -- Redis password. **WARNING: Change this for production deployments!** The default value is insecure.
+    password: redispassword
+  # -- Redis Sentinel provides high availability for Redis through automatic failover. When enabled in replication mode, Sentinel monitors the master and replicas, and promotes a replica to master if the current master becomes unavailable. When disabled with replication mode, pod-0 is always the master.
+  sentinel:
+    # -- Enable Redis Sentinel for high availability. When disabled, pod-0 is master (manual failover)
+    enabled: False
+
+  resources:
+    requests:
+      # -- requested memory as in resource.requests.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      memory: "256Mi"
+      # -- requested cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      cpu: "100m"
+    limits:
+      # -- limits memory as in resource.limits.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      memory: "512Mi"
+      # -- limit cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      cpu: "200m"
+
+postgres:
+  # -- type of used postgres: "operator" or "external". \
+  # if external is used, host, port and password have to be set in postgres.external using values or external secret
+  # if operator is used, host port and passwords get set automatically using postgres-operator. If your Kubernetes cluster
+  # does not have a running postgres-operator, you can install the postgres-operator with  postgres-operator.enabled = true
+  type: operator
+  # -- postgres username
+  username: postgres
+  # -- database schema
+  schema: public
+  # -- geonode database name and username
+  geonode_databasename_and_username: geonode
+  # -- geoserver database name and username
+  geodata_databasename_and_username: geodata
+
+  # configuration for postgres operator database manifest (https://github.com/zalando/postgres-operator/blob/master/docs/reference/cluster_manifest.md)
+  operator:
+    # -- pod name for postgres containers == teamID for mainifest
+    pod_name: postgresql
+    # -- Database storage size
+    storageSize: 3Gi
+    # -- postgress pv storageclass
+    storageClass:
+    # -- number of database instances
+    numberOfInstances: 1
+    # -- postgres version
+    postgres_version: 15
+    # -- boolean flag to override the operator defaults (set by the enable_master_load_balancer parameter) to define whether to enable the load balancer pointing to the Postgres primary. Optional.
+    enableMasterLoadBalancer:
+    # -- when one or more load balancers are enabled for the cluster, this parameter defines the comma-separated range of IP networks (in CIDR-notation).
+    # The corresponding load balancer is accessible only to the networks defined by this parameter.
+    # Optional, when empty the load balancer service becomes inaccessible from outside of the Kubernetes cluster.
+    allowedSourceRanges: []
+    # -- a dictionary of environment variables. Use usual Kubernetes definition (https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/)
+    # for environment variables. Optional.
+    env: []
+    # -- additional annotation for postgresql object
+    annotations: {}
+    # -- patroni related configuration (https://patroni.readthedocs.io/en/master/patroni_configuration.html)
+    patroni: {}
+    # -- postgres parameters resources
+    parameters:
+      max_connections: "20"
+      shared_buffers: 250MB
+      work_mem: 12.5Mb
+    # --
+    clone: {}
+    # -- Those parameters define CPU and memory requests and limits for the Postgres container. They are grouped under the resources top-level key with subgroups requests and limits
+    resources:
+      requests:
+        # -- requested memory as in resource.requests.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+        memory: "0.5Gi"
+        # -- requested cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+        cpu: "100m"
+      limits:
+        # -- limits memory as in resource.limits.memory (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+        memory: "1Gi"
+        # -- limit cpu as in resource.requests.cpu (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+        cpu: "400m"
+
+  external:
+    hostname: my-external-postgres.com
+    port: 5432
+    ssl: prefer
+    secret:
+      # -- name of an existing Secret to use. Set, if you want to separately maintain the Secret.
+      existingSecretName: ""
+      postgres_password: postgres
+      geonode_password: geonode
+      geodata_password: geogeonode
+
+# VALUES DEFINITION: https://github.com/zalando/postgres-operator/blob/master/charts/postgres-operator/values.yaml
+postgres-operator:
+  # -- enable postgres-operator (this or postgresql.enabled NOT both )
+  enabled: False
+  # -- ???
+  operatorApiUrl: "http://{{ .Release.Name }}-postgres-operator:8080"
+  configLoggingRestApi:
+    # --  REST API listener listens to this port
+    api_port: 8080
+  # -- not setting the podServiceAccount name will leed to generation of this name. This allows to run multiple postgres-operators in a single kubernetes cluster. just seperating them by namespace.
+  podServiceAccount:
+    name: ""
+
+# -- (map of fixture files) Fixture files which shall be made available under /usr/src/geonode/geonode/fixtures (refer to https://docs.djangoproject.com/en/4.2/howto/initial-data/)
+geonodeFixtures:
+  # @gignore
+  somefixture.json: |
+    [
+      {
+        "pk": 0,
+        "model": "myapp.sample"
+        "description": "nice little content"
+      }
+    ]
+
+# -- A base64 encoded favicon
+# @default -- AAABAAMAEBAAAAEAIABoBA ... AAAA==
+favicon: |
+  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k/+y7vn/su75/7Lu+f+y7vn/su75/7Hs9/8uLi3/ncUs/57GLP+exiz/nsYs/57GLP+exiv/cowr/ywsLf8sLCz/25tP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y4uLf/bnE//3Z1Q/92dUP/dnVD/3Z1Q/92dUP+FZT7/b42T/7Lu+f+y7vn/su75/7Lu+f+y7vn/sez3/y4uLf+dxSz/nsYs/57GLP+exiz/mb8r/1ZmLP9IPjL/LCws/ywsLP/bm0//3Z1Q/92dUP/dnVD/3Z1Q/92dUP/cnVD/Li4t/9ucT//dnVD/3Z1Q/92dUP/dnVD/3Z1Q/4VlPv9vjZP/su75/7Lu+f+y7vn/su75/7Lu+f+x7Pf/Li4t/53FLP+exiz/nsYs/4qsK/8/Riz/b1Y5/9OWTv8sLCz/LCws/9ubT//dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9ydUP8uLi3/25xP/92dUP/dnVD/3Z1Q/92dUP/dnVD/hWU+/2+Nk/+y7vn/su75/7Lu+f+y7vn/su75/7Hs9/8uLi3/ncUs/57GK/9zjCz/ODcu/5tyQv/dnVD/25tP/ywsLP8sLCz/25tP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y4uLf/bnE//3Z1Q/92dUP/dnVD/3Z1Q/92dUP+FZT7/b42T/7Lu+f+y7vn/su75/7Lu+f+y7vn/sez3/y4uLf+Yvyv/VmYs/0k/Mv+/ikn/3Z1Q/92dUP/bm0//LCws/ywsLP/bm0//3Z1Q/92dUP/dnVD/3Z1Q/92dUP/cnVD/Li4t/9ucT//dnVD/3Z1Q/82STP+edUP/blY5/zw2L/8zNTb/RVFT/1dqbf9og4j/epyj/4u1vf+cztf/LS0t/z9GLP9vVjn/1ZhO/92dUP/dnVD/3Z1Q/9ubT/8sLCz/LCws/9ubT//dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9ydUP8uLi3/qnxF/3xfPP9NQTP/NDc3/1Vna/95nKL/YHh8/11vLP+CoSv/dI0s/2V5LP9WZSz/R1Es/zk9LP8tLS3/m3JC/92dUP/dnVD/3Z1Q/92dUP/dnVD/25tP/ywsLP8sLCz/25tP/92dUP/dnVD/3Z1Q/92dUP/cnE//lnBB/y0tLf9LWVv/b42S/5PByf+v6vX/su75/7Lu+f9vjZP/ZXks/57GLP+exiz/nsYs/57GLP+exiz/ncUr/y4uLf/cnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/bm0//LCws/ywsLP/bm0//3Z1Q/92dUP/dnVD/y5FM/19NNv9ETSz/LS0t/7Hs9/+y7vn/su75/7Lu+f+y7vn/su75/2+Nk/9leSz/nsYs/57GLP+exiz/nsYs/57GLP+dxSz/Li4t/9ydUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9ubT/8sLCz/LCws/9ubT//dnVD/3Z1Q/6F2Q/87Ny7/Znsr/5vDK/8uLi3/sez3/7Lu+f+y7vn/su75/7Lu+f+y7vn/b42T/2V5LP+exiz/nsYs/57GLP+exiz/nsYs/53FLP8uLi3/3J1Q/92dUP/dnVD/3Z1Q/92dUP/CjEr/dVs6/ywsLP8sLCz/25tP/9CVTf9pUzj/P0Ys/4enK/+exiz/ncUs/y4uLf+x7Pf/su75/7Lu+f+y7vn/su75/7Lu+f9vjZP/ZXks/57GLP+exiz/nsYs/57GLP+exiz/ncUs/y4uLf/cnVD/3Z1Q/9ycT/+vf0b/YU43/zxCQ/9ykZf/LCws/ywsLP+oe0X/Pzkw/2ByLP+awSv/nsYs/57GLP+dxSz/Li4t/7Hs9/+y7vn/su75/7Lu+f+y7vn/su75/2+Nk/9leSz/nsYs/57GLP+exiz/nsYs/57GLP+dxSz/Li4t/9ydUP/dnVD/jGk//0JLTf+CqbD/r+r1/7Dr9v8sLCz/LCwt/zxBLP+CoSv/nsYs/57GLP+exiz/nsYs/53FLP8uLi3/sez3/7Lu+f+y7vn/su75/7Lu+f+x7Pf/UmRn/05aLP+dxSv/nsYs/57GLP+exiz/nsYs/53FLP8uLi3/3J1Q/92dUP+DYz7/cY+V/7Lu+f+y7vn/sOv2/ywsLP8sLC3/l70r/57GLP+exiz/nsYs/57GLP+exiz/ncUs/y4uLf+x7Pf/su75/7Lu+f+y7vn/su75/2qGjP80NFz/MzNX/2V5K/+exiz/nsYs/57GLP+exiz/ncUs/y4uLf/cnVD/3Z1Q/4NjPv9xj5X/su75/7Lu+f+w6/b/LCws/ywsLf+cxCz/nsYs/57GLP+exiz/nsYs/57GLP+dxSz/Li4t/7Hs9/+y7vn/su75/7Lu+f+CqbD/MDFI/0hI2/9ISNj/MDFE/3iT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cP+CqK//p9/o/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/53FLP+exiz/nsYs/57GLP+dxSv/jbAr/3CJLP9RXyz/PkUs/zc7LP8vMSz/Kysr0iwsLP9kTzf/sIBG/82STP/cnE//3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9OWTf+zgkf/RDwx/zg9Pv+NuMD/pdzm/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/53FLP+exiz/nsYs/57GLP+exiz/nsYs/57GLP+dxSv/lLgr/4KgLP9QXCz/LCwt/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/cnE//TkIz/z5FSP+x7fj/su75/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/53FLP+exiz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FLP9jdyz/LCwt/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/cnE//TkIz/z5FSP+x7fj/su75/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/53FLP+exiz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/nsYr/5K2K/9SYCz/LCwt/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/cnE//TkIz/z5FSP+x7fj/su75/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/53FLP+exiz/nsYs/57GLP+exiz/nsYs/57GLP+cxCv/gJ4r/0tWLP8tLiz/LS0t/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/cnE//TkIz/z5FSP+x7fj/su75/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/53FLP+exiz/nsYs/57GLP+exiz/nsYs/5vDK/9rgiv/Njos/z03L/9aSTX/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/cnE//TkIz/z5FSP+x7fj/su75/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/53FLP+exiz/nsYs/57GLP+dxSv/krcr/15xK/80My3/XEo1/8ePS/+CYz3/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/cnE//TkIz/z5FSP+x7fj/su75/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/53FLP+exiz/nsYs/5zEK/+Aniv/SVQs/zYyLv+EZD7/z5RN/9ycT/+CYz3/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/cnE//TkIz/z5FSP+x7fj/su75/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/53FLP+exiz/nsYr/3CJLP81OSz/Qjow/7OBR//Ymk//3Z1Q/9ycT/+CYz3/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/cnE//TkIz/z5FSP+x7fj/su75/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/5zEK/+RtSv/WWks/y8uLf9iTjb/x45L/92dUP/dnVD/3Z1Q/9ycT/+CYz3/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9CUTP+vf0b/Qzsx/zc7PP9/pav/irW9/5bGzv+i1+H/rejy/7Lu+f+y7vn/su75/7Ht+P9ujJH/Li8t/4KhLP9KVCz/OjYu/4JiPf/Mkkz/3Z1Q/92dUP/dnVD/3Z1Q/9ycT/+CYz3/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf+DZD7/3JxP/92dUP/dnVD/3Z1Q/8+UTP+ZcUL/Yk43/z44MP83My//Li0t/y0tLf8xMjP/Mzc3/zY7O/85P0D/PENE/0pXWv9fdXr/cpKY/4evt/9gd3v/LS0t/zM2LP9JPjL/soFG/9maT//dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9ycT/+CYz3/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3J1Q/y8uLf98Xzz/x49L/7eER/+HZj7/VUY0/y8uLv81OTr/PUVG/0xbXv9ykpj/PERG/zg8LP99miv/bYUr/15wLP9NWiz/QUks/z1DLP85Piz/Njks/zI0LP8uLyz/LS0t/1lINf/Ci0r/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9ycT/+CYz3/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/0JVN/y4uLf9GPDH/TEAy/zEwLv8+Rkj/Vmhr/22Kj/+GrrX/ndDZ/7Dr9v+x7fj/RlFU/ztALP+dxSz/nsYs/57GLP+dxiv/m8Ir/5K2K/+HqCv/fZsr/3SOK/9NWCz/Li4t/8+UTf/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9ycT/+CYz3/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9ycT/+5hkj/U0Uz/y0tLf8/SEn/bIiN/5PCyv+l3Ob/q+Tv/7Ds9/+y7vn/su75/7Lu+f+x7fj/RlFU/ztALP+dxSz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FK/9keCz/Ly4t/9ydUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9ycT/+CYz3/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/92dUP/cnE//0pZN/591Q/8+ODD/OT4s/y0tLf9ujJH/se34/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Lu+f+x7fj/RlFU/ztALP+dxSz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9ycT/+CYz3/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/9ucT/+5hkj/bVU5/zMyLf9UYyz/hqcr/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Lu+f+x7fj/RlFU/ztALP+dxSz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/9WYTv9yWDr/LCws/ywsLP+CYz3/3JxP/92dUP/dnVD/3Z1Q/510Qv8/ODD/NDYs/3SOK/+Zvyv/ncQr/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Lu+f+x7fj/RlFU/ztALP+dxSz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/92dUP/dnVD/3Z1Q/92dUP/WmE7/m3JB/0xAMv8zMS7/LCws/ywsLP+CYz3/3JxP/9ucT//EjUr/blY5/y4vLP9LViz/i6wr/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Lu+f+x7fj/RlFU/ztALP+dxSz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/9ycT//XmU7/x49L/5lxQv9JPzL/NTk5/0VRU/9HU1X/LCws/ywsLP+CYz3/2ZpP/6B2Q/9QQzP/Oj0s/2Z6K/+Ttyv/ncUr/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Lu+f+x7fj/RlFU/ztALP+dxSz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/9OWTf9/YTz/Sj8y/zY7O/9ddHj/hKyz/6jf6f9tipD/LCws/ywsLP9wVzn/aFI4/zUyLv9KVCz/iqsr/5zDK/+exiz/nsYs/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Lu+f+x7fj/RlFU/ztALP+dxSz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/8WNSv8vLi3/aIOI/6DV3/+t5/H/se34/7Ht+P9tipD/LCws/ywsLf8tLC3/NTgs/1ttK/+WvCv/nsYs/57GLP+exiz/nsYs/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/7Ht+P+j2OL/QElL/zg8LP+Stiv/ncUr/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/8SNSv8uLi//mcrT/7Lu+f+y7vn/su75/7Ht+P9tipD/LCws/ywsLf9DSyz/epYr/53EK/+exiz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/6vl8P9gd3z/MDI6/y8wM/9bbSz/l70r/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/8SNSv8uLi//mcrT/7Lu+f+y7vn/su75/7Ht+P9tipD/LCws/ywsLf9idSz/nMQr/57GLP+exiz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/7Lu+f+y7vn/su75/3COlP8vMTX/Pj6f/z4+oP8vMTD/Z30r/57GLP+exiz/nsYs/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/8SNSv8uLi//mcrT/7Lu+f+y7vn/su75/7Ht+P9tipD/LCws/ywsLf9jdyz/ncUs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/7Lu+f+v6/X/gqiw/y0uMP85OYD/SUng/0lJ4f84OHr/Li4w/3eRK/+cxCv/nsYs/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/8SNSv8uLi//mcrT/7Lu+f+y7vn/su75/7Ht+P9tipD/LCws/ywsLf9jdyz/ncUs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/7Ht+P+Pu8P/O0JE/zQ0Xv9HR9T/S0vo/0tL6P9HRtH/NDRg/zc8LP+CoSv/ncUr/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/8SNSv8uLi//mcrT/7Lu+f+y7vn/su75/7Ht+P9tipD/LCws/ywsLf9jdyz/ncUs/57GLP+exiz/nsYs/57GLP+exiz/nsYs/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Lu+f+y7vn/su75/6jg6v9LWVz/MTFH/0hH1v9LSuj/S0vo/0tL6P9KSuf/R0fU/zAwQ/9JUyz/krcr/57GLP+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/8SNSv8uLi//mcrT/7Lu+f+y7vn/su75/7Ht+P9tipD/LCws/ywsLf9cbSz/k7cr/5rBK/+dxSv/nsYs/57GLP+exiz/nsYs/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Lu+f+y7vn/sOv2/22Kj/8uLjv/QkK4/0tL6P9LS+j/S0vo/0tL6P9LS+j/S0vo/0NDvf8uLjr/YXQs/5zDK/+exiz/nsYs/53FLP9keCz/Ly4t/9ydUP/dnVD/3Z1Q/8SNSv8uLi//mcrT/7Lu+f+y7vn/r+r1/6jf6f9mgIT/LCws/ywsLOI1OCz+SVMs/1tsK/9vhyv/gqAr/5S5K/+dxSv/nsYs/57GLP+exiz/ncUs/y4vLf9ujJH/se34/7Ht+P+h1t//eJuh/zEzN/86Oob/SUnh/0tL6P9LS+j/S0vo/0tL6P9LS+j/S0vo/0pK4/86OoX/MTIx/2uCK/+Psyv/ncUr/53F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

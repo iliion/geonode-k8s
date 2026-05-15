@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webgis
+  namespace: rheticus-electric-towers
+  labels:
+    app: webgis
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: webgis
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+
+  template:
+    metadata:
+      labels:
+        app: webgis
+
+    spec:
+      imagePullSecrets:
+        - name: rheticus-electric-towers-pull-secret
+
+      tolerations:
+        - key: cluster
+          operator: Equal
+          value: rheticuset_cluster
+          effect: NoSchedule
+
+      containers:
+        - name: webgis
+          image: harbor.planetek.it/rheticus_electric_towers/rheticus-electric-towers-web-gis
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 80
+              name: http
+
+          env:
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: webgis-client-creds
+                  key: ADMIN_USERNAME
+
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: webgis-client-creds
+                  key: ADMIN_PASSWORD
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: webgis-nginx-config

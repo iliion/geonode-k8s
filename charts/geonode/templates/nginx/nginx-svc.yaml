@@ -1,0 +1,13 @@
+# Load-balancer
+kind: Service
+apiVersion: v1
+metadata:
+  name: "{{ include "nginx_pod_name" . }}"
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    org.geonode.instance: "{{ include "nginx_pod_name" . }}"
+  ports:
+  - targetPort: 80
+    port: 80
+  type: ClusterIP

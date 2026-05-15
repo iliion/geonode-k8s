@@ -1,0 +1,25 @@
+apiVersion: apisix.apache.org/v2
+kind: ApisixRoute
+metadata:
+  name: geonode-route-root
+  namespace: rheticus-electric-towers
+spec:
+  ingressClassName: apisix
+  http:
+    - name: webgis-root
+      match:
+        hosts:
+          - relect.planetek.it
+        paths:
+          - "/*"
+          - "/"
+          - "/**"
+      backends:
+        - serviceName: webgis
+          servicePort: 80
+      plugins:
+        - name: proxy-rewrite
+          enable: true
+          config:
+            headers:
+              X-Forwarded-Proto: "https"

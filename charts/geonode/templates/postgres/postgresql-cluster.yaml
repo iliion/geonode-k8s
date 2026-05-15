@@ -1,0 +1,28 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-pg
+  namespace: rheticus-electric-towers
+
+spec:
+  imageName: ghcr.io/cloudnative-pg/postgis:15
+
+  instances: 3
+
+  affinity:
+    tolerations:
+      - key: cluster
+        operator: Equal
+        value: rheticuset_cluster
+        effect: NoSchedule
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  storage:
+    size: 1Gi

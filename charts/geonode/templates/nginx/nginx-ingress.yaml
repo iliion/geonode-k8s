@@ -1,0 +1,78 @@
+
+{{if (eq .Values.geonode.ingress.enabled true) }}
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name:  "{{ include "nginx_pod_name" . }}-ingress"
+  annotations:
+    description: Configures routes for external access
+    {{- if .Values.geonode.ingress.annotations -}}
+    {{ .Values.geonode.ingress.annotations | toYaml | nindent 4 }}
+    {{- end -}}
+    {{ if (eq .Values.geonode.acme.enabled true) }}
+    cert-manager.io/issuer: letsencrypt
+    acme.cert-manager.io/http01-edit-in-place: "true"
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.geonode.ingress.ingressClassName }}
+  {{ if (eq .Values.geonode.general.externalScheme "https") }}
+  tls:
+  - hosts:
+    -  {{ .Values.geonode.general.externalDomain }}
+    secretName: {{ .Values.geonode.ingress.tlsSecret }}
+  {{ end }}
+  rules:
+  - host: {{ .Values.geonode.general.externalDomain }}
+    http:
+      paths:
+      - path: "/"
+        pathType: Prefix
+        backend:
+          service:
+            name:  "{{ include "nginx_pod_name" . }}"
+            port:
+              number: 80
+      - path: "/geoserver"
+        pathType: Prefix
+        backend:
+          service:
+            name: "{{ include "geoserver_pod_name" . }}"
+            port:
+              number: {{ .Values.geoserver.port }}
+      {{- if .Values.pycsw.enabled }}
+      - path: {{ .Values.pycsw.endpoint }}
+        pathType: Prefix
+        backend:
+          service:
+            name: "{{ include "pycsw_pod_name" . }}"
+            port:
+              number: 8000
+      {{- end }}
+
+---
+
+
+{{if (eq .Values.geonode.acme.enabled true) }}
+
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    email: {{ .Values.geonode.acme.email }}
+    server: {{ .Values.geonode.acme.stageUrl }}
+    privateKeySecretRef:
+      name: letsencrypt
+    solvers:
+    - selector:
+        dnsNames:
+          - {{ .Values.geonode.general.externalDomain }}
+      http01:
+        ingress:
+          ingressClassName: {{ .Values.geonode.ingress.ingressClassName }}
+{{ end }}
+
+
+{{ end }}
